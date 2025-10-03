@@ -15,8 +15,9 @@ namespace LoyaltyApp.Models
 
         public DateTime RegistrationDate { get; set; }
 
-        // "один ко многим"
-        public virtual ICollection<LoyaltyCard> LoyaltyCards { get; set; } = new List<LoyaltyCard>();
+        // "свойство для связи один-к-одному с картой"
+        public virtual LoyaltyCard LoyaltyCard { get; set; }
+        // у клиента может быть много покупок
         public virtual ICollection<Purchase> Purchases { get; set; } = new List<Purchase>();
     }
 }

@@ -9,13 +9,11 @@ namespace LoyaltyApp.Models
         [Required]
         public string CardNumber { get; set; }
 
-        public DateTime IssueDate { get; set; }
+        public decimal DiscountPercent { get; set; }
 
-        // Внешний ключ для связи с клиентом
+        // внешний ключ для связи один-к-одному
         public int ClientId { get; set; }
 
-        // Навигационные свойства
         public virtual Client Client { get; set; }
-        public virtual ICollection<LoyaltyTransaction> Transactions { get; set; } = new List<LoyaltyTransaction>();
     }
 }

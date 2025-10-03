@@ -8,7 +8,8 @@ namespace LoyaltyApp.Data
         public DbSet<Client> Clients { get; set; }
         public DbSet<LoyaltyCard> LoyaltyCards { get; set; }
         public DbSet<Purchase> Purchases { get; set; }
-        public DbSet<LoyaltyTransaction> LoyaltyTransactions { get; set; }
+        public DbSet<Product> Products { get; set; }
+        public DbSet<PurchaseItem> PurchaseItems { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -33,10 +34,24 @@ namespace LoyaltyApp.Data
             {
                 entity.HasIndex(lc => lc.CardNumber).IsUnique();
             });
+            // настройка связи один-к-одному между client и loyaltycard
+            modelBuilder.Entity<Client>()
+                .HasOne(c => c.LoyaltyCard)
+                .WithOne(lc => lc.Client)
+                .HasForeignKey<LoyaltyCard>(lc => lc.ClientId);
+            // настройка составного ключа для таблицы "Позиции Покупки"  
+            modelBuilder.Entity<PurchaseItem>()
+                .HasKey(pi => new {pi.PurchaseId, pi.ProductId});
+            // настройка связи многие-ко-многим между Purchase и Product через PurchaseItem
+            modelBuilder.Entity<PurchaseItem>()
+                .HasOne(pi => pi.Purchase)
+                .WithMany(pi => pi.PurchaseItems)
+                .HasForeignKey(pi => pi.PurchaseId);
 
-            // спец.хрень для постгреса, шобы правильно работать с enum.
-            // вот эта строка создаст в бд спец.тип 'transaction_type'
-            modelBuilder.HasPostgresEnum<TransactionType>();
+            modelBuilder.Entity<PurchaseItem>()
+                 .HasOne(pi => pi.Product)
+                 .WithMany(p => p.PurchaseItems)
+                 .HasForeignKey(pi => pi.ProductId);
         }
     }
 }
