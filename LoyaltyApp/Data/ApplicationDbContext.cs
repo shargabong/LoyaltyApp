@@ -14,44 +14,23 @@ namespace LoyaltyApp.Data
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             string connectionString = "Host=localhost;Port=5432;Database=loyalty_db;Username=postgres;Password=zxc";
-
             optionsBuilder.UseNpgsql(connectionString);
         }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<Client>().ToTable("Clients");
+            modelBuilder.Entity<LoyaltyCard>().ToTable("LoyaltyCards");
+            modelBuilder.Entity<Product>().ToTable("Products");
+            modelBuilder.Entity<Purchase>().ToTable("Purchases");
+            modelBuilder.Entity<PurchaseItem>().ToTable("PurchaseItems");
 
-            // определение уникальных индексов для таблицы Clients
-            modelBuilder.Entity<Client>(entity =>
-            {
-                entity.HasIndex(c => c.PhoneNumber).IsUnique();
-                entity.HasIndex(c => c.Email).IsUnique();
-            });
+            modelBuilder.Entity<PurchaseItem>()
+                .HasKey(pi => new { pi.PurchaseId, pi.ProductId });
 
-            // определение уникального индекса для таблицы LoyaltyCards
-            modelBuilder.Entity<LoyaltyCard>(entity =>
-            {
-                entity.HasIndex(lc => lc.CardNumber).IsUnique();
-            });
-            // настройка связи один-к-одному между client и loyaltycard
             modelBuilder.Entity<Client>()
-                .HasOne(c => c.LoyaltyCard)
-                .WithOne(lc => lc.Client)
-                .HasForeignKey<LoyaltyCard>(lc => lc.ClientId);
-            // настройка составного ключа для таблицы "Позиции Покупки"  
-            modelBuilder.Entity<PurchaseItem>()
-                .HasKey(pi => new {pi.PurchaseId, pi.ProductId});
-            // настройка связи многие-ко-многим между Purchase и Product через PurchaseItem
-            modelBuilder.Entity<PurchaseItem>()
-                .HasOne(pi => pi.Purchase)
-                .WithMany(pi => pi.PurchaseItems)
-                .HasForeignKey(pi => pi.PurchaseId);
-
-            modelBuilder.Entity<PurchaseItem>()
-                 .HasOne(pi => pi.Product)
-                 .WithMany(p => p.PurchaseItems)
-                 .HasForeignKey(pi => pi.ProductId);
+                .HasOne(client => client.LoyaltyCard)      // У Клиента есть одна Карта
+                .WithOne(card => card.Client)            // У Карты есть один Клиент
+                .HasForeignKey<LoyaltyCard>(card => card.ClientId); // Связь идет через поле ClientId в таблице Карт
         }
     }
 }
