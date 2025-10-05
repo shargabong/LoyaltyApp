@@ -75,6 +75,7 @@ namespace LoyaltyApp
                 Console.WriteLine("--- Меню управления товарами ---");
                 Console.WriteLine("1. Добавить новый товар");
                 Console.WriteLine("2. Посмотреть каталог товаров");
+                Console.WriteLine("3. Удалить товар");
                 Console.WriteLine("0. Назад в главное меню");
 
                 string choice = GetString("\nВаш выбор: ");
@@ -83,6 +84,7 @@ namespace LoyaltyApp
                 {
                     case "1": AddNewProduct(dbContext); break;
                     case "2": ViewAllProducts(dbContext); break;
+                    case "3": DeleteProduct(dbContext); break;
                     case "0": return;
                     default: ShowError("Неверный выбор."); break;
                 }
@@ -184,6 +186,51 @@ namespace LoyaltyApp
             dbContext.SaveChanges();
 
             ShowSuccess($"Товар '{name}' успешно добавлен в каталог!");
+            Pause();
+        }
+
+        static void DeleteProduct(ApplicationDbContext dbContext)
+        {
+            ShowHeader("Удаление товара из каталога");
+            ViewAllProducts(dbContext);
+
+            int productId = GetPositiveInt("\nВведите ID товара, который хотите удалить: ");
+            var productToDelete = dbContext.Products.Find(productId);
+
+            if (productToDelete == null)
+            {
+                ShowError("Товар с таким ID не найден.");
+                Pause();
+                return;
+            }
+
+            Console.WriteLine($"Найден товар: {productToDelete.Name} (ID: {productToDelete.Id})");
+            if (!GetConfirmation("Вы уверены, что хотите НАВСЕГДА удалить этот товар? (да/нет): "))
+            {
+                Console.WriteLine("Удаление отменено.");
+                Pause();
+                return;
+            }
+
+            try
+            {
+                dbContext.Products.Remove(productToDelete);
+                dbContext.SaveChanges();
+
+                ShowSuccess("Товар успешно удален.");
+            }
+            catch (DbUpdateException ex)
+            {
+                dbContext.ChangeTracker.Clear();
+
+                ShowError("\nОШИБКА: Невозможно удалить этот товар, так как он уже приутствует в истории покупок.");
+                ShowError("Сначала необходимо удалить все покупки, содержащие этот товар.");
+            }
+            catch (Exception ex)
+            {
+                ShowError($"\nПроизошла непредвиденная ошибка: {ex.Message}");
+            }
+
             Pause();
         }
 
