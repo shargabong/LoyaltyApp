@@ -128,21 +128,6 @@ namespace LoyaltyApp
         #region Client Management
         static Client FindClient(ApplicationDbContext dbContext)
         {
-            Console.WriteLine("\n--- Список доступных клиентов ---");
-            var allClients = dbContext.Clients.Include(c => c.LoyaltyCard).ToList();
-            if (!allClients.Any())
-            {
-                ShowError("В базе данных еще нет клиентов.");
-                return null;
-            }
-
-            Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Карта лояльности"}");
-            Console.WriteLine(new string('=', 60));
-            foreach (var c in allClients)
-            {
-                Console.WriteLine($"{c.Id,-5} | {c.FullName,-30} | {c.LoyaltyCard?.CardNumber ?? "Нет"}");
-            }
-
             Console.WriteLine("\nКак найти клиента?");
             Console.WriteLine("1. По ID");
             Console.WriteLine("2. По ФИО");
@@ -161,12 +146,24 @@ namespace LoyaltyApp
                                     .Where(c => c.FullName.ToLower().Contains(name.ToLower()))
                                     .ToList();
 
-                if (!clientsFound.Any()) return null;
+                if (!clientsFound.Any())
+                {
+                    ShowError("Клиенты не найдены.");
+                    return null;
+                }
 
                 if (clientsFound.Count == 1) return clientsFound.First();
 
-                Console.WriteLine("Найдено несколько клиентов. Пожалуйста, выберите нужного по ID из списка выше:");
-                int id = GetPositiveInt("Введите точный ID: ");
+                // Если найдено несколько клиентов, показываем таблицу для выбора
+                Console.WriteLine("\n--- Найдено несколько клиентов ---");
+                Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Телефон",-15} | {"Email",-25} | {"Карта лояльности"}");
+                Console.WriteLine(new string('=', 90));
+                foreach (var c in clientsFound)
+                {
+                    Console.WriteLine($"{c.Id,-5} | {c.FullName,-30} | {c.PhoneNumber ?? "N/A",-15} | {c.Email ?? "N/A",-25} | {c.LoyaltyCard?.CardNumber ?? "Нет"}");
+                }
+
+                int id = GetPositiveInt("\nВведите точный ID клиента: ");
                 return clientsFound.FirstOrDefault(c => c.Id == id);
             }
 
@@ -308,6 +305,8 @@ namespace LoyaltyApp
 
             if (client == null) { ShowError("Клиент не найден."); Pause(); return; }
 
+            Console.WriteLine($"\nНайден клиент: {client.FullName} (ID: {client.Id})");
+
             bool hasChanges = false;
             while (true)
             {
@@ -389,7 +388,7 @@ namespace LoyaltyApp
             }
             else
             {
-                Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Email",-25} | {"Карта лояльности",-22} | {"Скидка"}");
+                Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Email",-25} | {"Карта лояльности",-22} | {"Скидка",-10}");
                 Console.WriteLine(new string('=', 100));
                 foreach (var client in clients)
                 {
@@ -407,6 +406,8 @@ namespace LoyaltyApp
             var client = FindClient(dbContext);
 
             if (client == null) { ShowError("Клиент не найден."); Pause(); return; }
+
+            Console.WriteLine($"\nНайден клиент: {client.FullName} (ID: {client.Id})");
 
             var purchases = dbContext.Purchases
                 .Where(p => p.ClientId == client.Id)
@@ -452,7 +453,16 @@ namespace LoyaltyApp
             if (clientToDelete == null) { ShowError("Клиент не найден."); Pause(); return; }
 
             Console.WriteLine($"\nНайден клиент: {clientToDelete.FullName} (ID: {clientToDelete.Id})");
-            if (GetConfirmation("Вы уверены, что хотите удалить этого клиента и все его данные? (да/нет): "))
+            Console.WriteLine($"Email: {clientToDelete.Email ?? "Не указан"}");
+            Console.WriteLine($"Телефон: {clientToDelete.PhoneNumber ?? "Не указан"}");
+
+            if (clientToDelete.LoyaltyCard != null)
+            {
+                Console.WriteLine($"Карта лояльности: {clientToDelete.LoyaltyCard.CardNumber}");
+                Console.WriteLine($"Скидка: {clientToDelete.LoyaltyCard.DiscountPercent:F2}%");
+            }
+
+            if (GetConfirmation("\nВы уверены, что хотите удалить этого клиента и все его данные? (да/нет): "))
             {
                 dbContext.Clients.Remove(clientToDelete);
                 dbContext.SaveChanges();
@@ -572,15 +582,17 @@ namespace LoyaltyApp
         static void DeleteProduct(ApplicationDbContext dbContext)
         {
             ShowHeader("Удаление товара из каталога");
-            ViewAllProducts(dbContext);
 
-            int productId = GetPositiveInt("\nВведите ID товара, который хотите удалить: ");
+            int productId = GetPositiveInt("Введите ID товара, который хотите удалить: ");
             var productToDelete = dbContext.Products.Find(productId);
 
             if (productToDelete == null) { ShowError("Товар с таким ID не найден."); Pause(); return; }
 
-            Console.WriteLine($"Найден товар: {productToDelete.Name} (ID: {productToDelete.Id})");
-            if (!GetConfirmation("Вы уверены, что хотите НАВСЕГДА удалить этот товар? (да/нет): "))
+            Console.WriteLine($"\nНайден товар: {productToDelete.Name} (ID: {productToDelete.Id})");
+            Console.WriteLine($"Описание: {productToDelete.Description ?? "Нет описания"}");
+            Console.WriteLine($"Цена: {productToDelete.Price:F2} руб.");
+
+            if (!GetConfirmation("\nВы уверены, что хотите НАВСЕГДА удалить этот товар? (да/нет): "))
             {
                 Console.WriteLine("Удаление отменено."); Pause(); return;
             }
@@ -631,10 +643,12 @@ namespace LoyaltyApp
         {
             ShowHeader("Оформление новой покупки");
 
-            ViewAllClients(dbContext);
-            int clientId = GetPositiveInt("\nВведите ID клиента: ");
-            var client = dbContext.Clients.Include(c => c.LoyaltyCard).FirstOrDefault(c => c.Id == clientId);
+            Console.WriteLine("Выберите клиента для покупки:");
+            var client = FindClient(dbContext);
             if (client == null) { ShowError("Клиент не найден."); Pause(); return; }
+
+            Console.WriteLine($"\nВыбран клиент: {client.FullName} (ID: {client.Id})");
+
             Console.Clear();
             ShowHeader($"Оформление покупки для клиента: {client.FullName}");
 
@@ -699,7 +713,7 @@ namespace LoyaltyApp
             string paymentMethod = GetSpecificString("Введите способ оплаты (Карта/Наличные): ", paymentOptions);
 
 
-            var newPurchase = new Purchase { ClientId = clientId, PurchaseDate = DateTime.UtcNow, PaymentMethod = paymentMethod, PurchaseItems = purchaseItems };
+            var newPurchase = new Purchase { ClientId = client.Id, PurchaseDate = DateTime.UtcNow, PaymentMethod = paymentMethod, PurchaseItems = purchaseItems };
             dbContext.Purchases.Add(newPurchase);
             dbContext.SaveChanges();
 
@@ -838,9 +852,7 @@ namespace LoyaltyApp
         {
             ShowHeader("Редактирование покупки");
 
-            ViewAllPurchases(dbContext);
-
-            int purchaseId = GetPositiveInt("\nВведите ID покупки для редактирования: ");
+            int purchaseId = GetPositiveInt("Введите ID покупки для редактирования: ");
             var purchase = dbContext.Purchases
                 .Include(p => p.Client)
                 .Include(p => p.PurchaseItems)
@@ -854,15 +866,21 @@ namespace LoyaltyApp
                 return;
             }
 
-            Console.Clear();
-            ShowHeader($"Редактирование покупки №{purchase.Id}");
+            Console.WriteLine($"\nНайдена покупка:");
+            Console.WriteLine($"ID: {purchase.Id}");
             Console.WriteLine($"Клиент: {purchase.Client.FullName}");
-            Console.WriteLine($"Дата покупки: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
+            Console.WriteLine($"Дата: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
             Console.WriteLine($"Способ оплаты: {purchase.PaymentMethod}");
 
             bool hasChanges = false;
             while (true)
             {
+                Console.Clear();
+                ShowHeader($"Редактирование покупки №{purchase.Id}");
+                Console.WriteLine($"Клиент: {purchase.Client.FullName}");
+                Console.WriteLine($"Дата покупки: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
+                Console.WriteLine($"Способ оплаты: {purchase.PaymentMethod}");
+
                 Console.WriteLine("\n--- Текущие товары в покупке ---");
                 DisplayPurchaseItems(purchase.PurchaseItems.ToList());
 
@@ -940,12 +958,11 @@ namespace LoyaltyApp
         {
             ShowHeader("Удаление покупки");
 
-            ViewAllPurchases(dbContext);
-
-            int purchaseId = GetPositiveInt("\nВведите ID покупки для удаления: ");
+            int purchaseId = GetPositiveInt("Введите ID покупки для удаления: ");
             var purchase = dbContext.Purchases
                 .Include(p => p.Client)
                 .Include(p => p.PurchaseItems)
+                .ThenInclude(pi => pi.Product)
                 .FirstOrDefault(p => p.Id == purchaseId);
 
             if (purchase == null)
@@ -955,10 +972,10 @@ namespace LoyaltyApp
                 return;
             }
 
-            Console.Clear();
-            ShowHeader($"Удаление покупки №{purchase.Id}");
+            Console.WriteLine($"\nНайдена покупка:");
+            Console.WriteLine($"ID: {purchase.Id}");
             Console.WriteLine($"Клиент: {purchase.Client.FullName}");
-            Console.WriteLine($"Дата покупки: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
+            Console.WriteLine($"Дата: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
             Console.WriteLine($"Способ оплаты: {purchase.PaymentMethod}");
 
             Console.WriteLine("\n--- Товары в покупке ---");
