@@ -389,7 +389,7 @@ namespace LoyaltyApp
             }
             else
             {
-                Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Email",-25} | {"Карта лояльности",-22} | {"Скидка"}");
+                Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Email",-25} | {"Карта лояльности ",-22}  | {"Скидка"}");
                 Console.WriteLine(new string('=', 100));
                 foreach (var client in clients)
                 {
@@ -1174,10 +1174,6 @@ namespace LoyaltyApp
 
                 Console.WriteLine("База данных пуста. Добавляем тестовые данные...");
 
-                dbContext.Clients.AddRange(
-                    new Client { FullName = "Иван Петров", Email = "ivan@test.com", PhoneNumber = "89111234567", RegistrationDate = DateTime.UtcNow, LoyaltyCard = new LoyaltyCard { CardNumber = "CARD-001", DiscountPercent = 5.0m } },
-                    new Client { FullName = "Анна Сидорова", Email = "anna@test.com", PhoneNumber = "79217654321", RegistrationDate = DateTime.UtcNow, LoyaltyCard = new LoyaltyCard { CardNumber = "CARD-002", DiscountPercent = 3.5m } }
-                );
 
                 dbContext.Products.AddRange(
                     new Product { Name = "Молоко", Description = "Молоко 3.2%", Price = 75.50m },

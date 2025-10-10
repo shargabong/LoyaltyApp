@@ -13,7 +13,7 @@ namespace LoyaltyApp.Data
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            string connectionString = "Host=localhost;Port=5432;Database=loyalty_db;Username=postgres;Password=zxc";
+            string connectionString = "Host=localhost;Port=5432;Database=loyalty_db;Username=postgres;Password=satan";
             optionsBuilder.UseNpgsql(connectionString);
         }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
