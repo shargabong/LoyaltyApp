@@ -93,7 +93,7 @@ namespace LoyaltyApp
                     case "3": SearchProduct(dbContext); break;
                     case "4": DeleteProduct(dbContext); break;
                     case "0": return;
-                    default: ShowError("Неверный выбор."); break;
+                    default: ShowError("Неверный выбор."); break;   
                 }
             }
         }
@@ -280,7 +280,19 @@ namespace LoyaltyApp
         {
             ShowHeader("Добавление нового клиента");
 
-            string fullName = GetValidFullName("Введите ФИО: ");
+            string fullName;
+
+            do
+            {
+                fullName = GetValidFullName("Введите ФИО: ");
+
+                if (fullName.Length > 30)
+                {
+                    ShowError("ФИО не должно превышать 30 символов. Повторите ввод.");
+                }
+
+            } while (fullName.Length > 30);
+
             string email = GetValidEmail("Введите Email (необязательно): ", isOptional: true);
             string phoneNumber = GetValidPhoneNumber("Введите номер телефона (необязательно): ", isOptional: true);
             decimal discount = GetPositiveDecimal("Введите процент скидки для карты (>= 0): ");
