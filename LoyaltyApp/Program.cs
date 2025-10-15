@@ -1193,6 +1193,7 @@ namespace LoyaltyApp
         }
         #endregion
 
+
         #region Seeding
         static void SeedDatabase()
         {
