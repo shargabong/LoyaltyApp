@@ -125,6 +125,7 @@ namespace LoyaltyApp
         }
         #endregion
 
+
         #region Client Management
         static Client FindClient(ApplicationDbContext dbContext)
         {
@@ -206,7 +207,7 @@ namespace LoyaltyApp
                     break;
 
                 case "3":
-                    string phone = GetString("Введите номер телефона (можно часть): ");
+                    string phone = GetString("Введите номер телефона начная с 7... или 8...: ");
                     var clientsByPhone = dbContext.Clients
                         .Include(c => c.LoyaltyCard)
                         .Where(c => c.PhoneNumber != null && c.PhoneNumber.Contains(phone))
@@ -293,8 +294,19 @@ namespace LoyaltyApp
 
             } while (fullName.Length > 30);
 
-            string email = GetValidEmail("Введите Email (необязательно): ", isOptional: true);
-            string phoneNumber = GetValidPhoneNumber("Введите номер телефона (необязательно): ", isOptional: true);
+            string email;
+            do
+            {
+                email = GetValidEmail("Введите Email (необязательно): ", isOptional: true);
+
+                if (!string.IsNullOrWhiteSpace(email) && email.Length > 25)
+                {
+                    ShowError("Email не должен превышать 25 символов. Повторите ввод.");
+                }
+
+            } while (!string.IsNullOrWhiteSpace(email) && email.Length > 25);
+
+            string phoneNumber = GetValidPhoneNumber("Введите номер телефона: ", isOptional: true);
             decimal discount = GetPositiveDecimal("Введите процент скидки для карты (>= 0): ");
 
             var newClient = new Client
@@ -1320,11 +1332,11 @@ namespace LoyaltyApp
 
                 string digitsOnly = new string(input.Where(char.IsDigit).ToArray());
 
-                if (digitsOnly.Length == 11 && (digitsOnly.StartsWith("7") || digitsOnly.StartsWith("8")))
+                if (digitsOnly.Length == 12 && (digitsOnly.StartsWith("7") || digitsOnly.StartsWith("8")))
                 {
                     return input;
                 }
-                ShowError("Ошибка: Введите корректный российский номер телефона (11 цифр).");
+                ShowError("Ошибка: Введите корректный российский номер телефона начиная с 7... или 8... (11 цифр).");
             }
         }
         #endregion
