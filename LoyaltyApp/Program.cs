@@ -125,7 +125,6 @@ namespace LoyaltyApp
         }
         #endregion
 
-
         #region Client Management
         static Client FindClient(ApplicationDbContext dbContext)
         {
