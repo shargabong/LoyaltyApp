@@ -419,9 +419,11 @@ namespace LoyaltyApp
                 Console.WriteLine(new string('=', 100));
                 foreach (var client in clients)
                 {
+                    string email = client.Email ?? "Нет Email";
+                    string phone = client.PhoneNumber ?? "Нет телефона";
                     string cardInfo = client.LoyaltyCard?.CardNumber ?? "Нет";
                     string discountInfo = client.LoyaltyCard != null ? $"{client.LoyaltyCard.DiscountPercent:F2}%" : "N/A";
-                    Console.WriteLine($"{client.Id,-5} | {client.FullName,-30} | {client.Email,-25} | {cardInfo,-22} | {discountInfo}");
+                    Console.WriteLine($"{client.Id,-5} | {client.FullName,-30} | {email,-25} | {phone,-15} | {cardInfo,-22} | {discountInfo}");
                 }
             }
             Pause();
