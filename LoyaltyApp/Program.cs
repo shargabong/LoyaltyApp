@@ -1290,7 +1290,7 @@ namespace LoyaltyApp
                     return input;
                 }
 
-                ShowError($"Неверный ввод. Пожалуйста, введите один из вариантов: {string.Join(" / ", validOptions)}");
+                ShowError($"Неверный ввод. Пожалуйста, введите один из вариантов: {string.Join(" / ", validOptions)}"); 
             }
         }
 
