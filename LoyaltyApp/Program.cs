@@ -307,7 +307,8 @@ namespace LoyaltyApp
 
             } while (!string.IsNullOrWhiteSpace(email) && email.Length > 25);
 
-            string phoneNumber = GetValidPhoneNumber("Введите номер телефона: ", isOptional: true);
+            string phoneNumber = GetValidPhoneNumber("Введите номер телефона: ", isOptional: false);
+
             decimal discount = GetPositiveDecimal("Введите процент скидки для карты (>= 0): ");
 
             var newClient = new Client
@@ -1288,9 +1289,9 @@ namespace LoyaltyApp
                 if (validOptions.Contains(input, StringComparer.OrdinalIgnoreCase))
                 {
                     return input;
-                }
+                  }
 
-                ShowError($"Неверный ввод. Пожалуйста, введите один из вариантов: {string.Join(" / ", validOptions)}"); 
+                ShowError($"Неверный ввод. Пожалуйста, введите один из вариантов: {string.Join(" / ", validOptions)}");
             }
         }
 
