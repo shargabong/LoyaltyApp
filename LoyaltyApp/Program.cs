@@ -135,6 +135,7 @@ namespace LoyaltyApp
             {
                 ShowError("В базе данных еще нет клиентов.");
                 return null;
+
             }
 
             Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Карта лояльности"}");
@@ -496,7 +497,7 @@ namespace LoyaltyApp
             ShowHeader("Добавление нового товара");
             string name = GetRequiredString("Введите название товара: ");
             string description = GetString("Введите описание (необязательно): ");
-            decimal price = GetPositiveDecimal("Введите цену товара (> 0): ");
+            decimal price = GetPositiveDecimal("Введите цену товара (>= 0): ");
 
             var newProduct = new Product { Name = name, Description = description, Price = price };
             dbContext.Products.Add(newProduct);
