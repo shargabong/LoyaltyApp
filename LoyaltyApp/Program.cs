@@ -248,7 +248,7 @@ namespace LoyaltyApp
             ShowHeader(title);
             if (!clients.Any()) { Console.WriteLine("Клиенты не найдены."); return; }
 
-            Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Телефон",-20} | {"Email",-25} | {"Карта лояльности",-22} | {"Скидка"}");
+            Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Телефон",-20} | {"Email",-25} | {"Карта лояльности",-22}  | {"Скидка"}");
             Console.WriteLine(new string('=', 120));
             foreach (var client in clients)
             {
@@ -264,9 +264,9 @@ namespace LoyaltyApp
             ShowHeader("Добавление нового клиента");
 
             string fullName = GetValidFullName("Введите ФИО: ");
-            string email = GetValidEmail("Введите Email (необязательно, можно оставить пустым): ", isOptional: true);
+            string email = GetValidEmail("Введите Email: ", isOptional: false);
             string phoneNumber = GetMaskedPhoneNumber("Телефон: ", isOptional: false);
-            decimal discount = GetPositiveDecimal("Введите процент скидки для карты (>= 0): ");
+            decimal discount = GetDecimal("Введите процент скидки для карты (>= 0): ", 0.01m);
 
             var newClient = new Client
             {
@@ -314,7 +314,7 @@ namespace LoyaltyApp
                         break;
 
                     case "2":
-                        string newEmail = GetValidEmail("Новый Email: ", isOptional: true);
+                        string newEmail = GetValidEmail("Новый Email: ", isOptional: false);
                         if (newEmail != client.Email)
                         {
                             bool isEmailTaken = !string.IsNullOrEmpty(newEmail) && dbContext.Clients.Any(c => c.Email == newEmail && c.Id != client.Id);
@@ -339,7 +339,7 @@ namespace LoyaltyApp
 
                     case "4":
                         if (client.LoyaltyCard == null) { ShowError("У этого клиента нет карты лояльности."); Pause(); break; }
-                        decimal newDiscount = GetPositiveDecimal("Новая скидка (>= 0): ");
+                        decimal newDiscount = GetDecimal("Новая скидка (>= 0): ", 0);
                         if (newDiscount != client.LoyaltyCard.DiscountPercent)
                         {
                             client.LoyaltyCard.DiscountPercent = newDiscount;
@@ -414,7 +414,7 @@ namespace LoyaltyApp
             ShowHeader("Добавление нового товара");
             string name = GetRequiredString("Введите название товара: ");
             string description = GetString("Введите описание (необязательно): ");
-            decimal price = GetPositiveDecimal("Введите цену товара (> 0): ");
+            decimal price = GetDecimal("Введите цену товара (> 0): ", 0.01m);
 
             var newProduct = new Product { Name = name, Description = description, Price = price };
             dbContext.Products.Add(newProduct);
@@ -446,8 +446,8 @@ namespace LoyaltyApp
                     DisplayProductsList(productsByName, $"Результаты поиска по названию: '{name}'");
                     break;
                 case "3":
-                    decimal minPrice = GetPositiveDecimal("Введите минимальную цену: ");
-                    decimal maxPrice = GetPositiveDecimal("Введите максимальную цену: ");
+                    decimal minPrice = GetDecimal("Введите минимальную цену: ", 0);
+                    decimal maxPrice = GetDecimal("Введите максимальную цену: ", 0);
                     if (minPrice > maxPrice) { ShowError("Минимальная цена не может быть больше максимальной."); break; }
                     var productsByPrice = dbContext.Products.Where(p => p.Price >= minPrice && p.Price <= maxPrice).OrderBy(p => p.Price).ToList();
                     DisplayProductsList(productsByPrice, $"Результаты поиска по цене: от {minPrice:F2} до {maxPrice:F2} руб.");
@@ -748,7 +748,7 @@ namespace LoyaltyApp
             DisplayPurchaseDetails(purchaseToDelete, $"Удаление покупки №{purchaseToDelete.Id}");
             if (GetConfirmation("\nВы уверены, что хотите удалить эту покупку? Это действие необратимо. (да/нет): "))
             {
-                dbContext.Purchases.Remove(purchaseToDelete); // Cascade delete
+                dbContext.Purchases.Remove(purchaseToDelete);
                 dbContext.SaveChanges();
                 ShowSuccess("Покупка успешно удалена.");
             }
@@ -858,16 +858,18 @@ namespace LoyaltyApp
                 ShowError("Ошибка: Введите корректное целое неотрицательное число.");
             }
         }
-
-        static decimal GetPositiveDecimal(string prompt)
+        static decimal GetDecimal(string prompt, decimal minValue)
         {
             decimal number;
             while (true)
             {
                 Console.Write(prompt);
                 string input = Console.ReadLine();
-                if (decimal.TryParse(input, out number) && number >= 0) return number;
-                ShowError("Ошибка: Введите корректное неотрицательное число (например, 120,50).");
+                if (decimal.TryParse(input, out number) && number >= minValue)
+                {
+                    return number;
+                }
+                ShowError($"Ошибка: Введите корректное неотрицательное число (>= 0.01).");
             }
         }
 
