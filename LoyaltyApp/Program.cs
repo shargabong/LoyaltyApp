@@ -1,6 +1,7 @@
 ﻿using LoyaltyApp.Data;
 using LoyaltyApp.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
 
@@ -11,6 +12,10 @@ namespace LoyaltyApp
         #region Entry Point & Main Menus
         static void Main(string[] args)
         {
+            var culture = new CultureInfo("ru-RU");
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+
             SeedDatabase();
             RunMainMenu();
         }
@@ -93,7 +98,7 @@ namespace LoyaltyApp
                     case "3": SearchProduct(dbContext); break;
                     case "4": DeleteProduct(dbContext); break;
                     case "0": return;
-                    default: ShowError("Неверный выбор."); break;   
+                    default: ShowError("Неверный выбор."); break;
                 }
             }
         }
@@ -134,7 +139,6 @@ namespace LoyaltyApp
             {
                 ShowError("В базе данных еще нет клиентов.");
                 return null;
-
             }
 
             Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Карта лояльности"}");
@@ -191,42 +195,28 @@ namespace LoyaltyApp
             {
                 case "1":
                     int id = GetPositiveInt("Введите ID клиента: ");
-                    var clientById = dbContext.Clients
-                        .Include(c => c.LoyaltyCard)
-                        .FirstOrDefault(c => c.Id == id);
+                    var clientById = dbContext.Clients.Include(c => c.LoyaltyCard).FirstOrDefault(c => c.Id == id);
                     DisplayClientDetails(clientById, "Найденный клиент");
                     break;
 
                 case "2":
                     string name = GetRequiredString("Введите ФИО (можно часть): ");
-                    var clientsByName = dbContext.Clients
-                        .Include(c => c.LoyaltyCard)
-                        .Where(c => c.FullName.ToLower().Contains(name.ToLower()))
-                        .ToList();
+                    var clientsByName = dbContext.Clients.Include(c => c.LoyaltyCard).Where(c => c.FullName.ToLower().Contains(name.ToLower())).ToList();
                     DisplayClientsList(clientsByName, $"Результаты поиска по ФИО: '{name}'");
                     break;
 
                 case "3":
-                    string phone = GetString("Введите номер телефона начная с 7... или 8...: ");
-                    var clientsByPhone = dbContext.Clients
-                        .Include(c => c.LoyaltyCard)
-                        .Where(c => c.PhoneNumber != null && c.PhoneNumber.Contains(phone))
-                        .ToList();
+                    string phone = GetString("Введите номер телефона (можно часть): ");
+                    var clientsByPhone = dbContext.Clients.Include(c => c.LoyaltyCard).Where(c => c.PhoneNumber != null && c.PhoneNumber.Contains(phone)).ToList();
                     DisplayClientsList(clientsByPhone, $"Результаты поиска по телефону: '{phone}'");
                     break;
 
                 case "4":
                     string email = GetString("Введите email (можно часть): ");
-                    var clientsByEmail = dbContext.Clients
-                        .Include(c => c.LoyaltyCard)
-                        .Where(c => c.Email != null && c.Email.ToLower().Contains(email.ToLower()))
-                        .ToList();
+                    var clientsByEmail = dbContext.Clients.Include(c => c.LoyaltyCard).Where(c => c.Email != null && c.Email.ToLower().Contains(email.ToLower())).ToList();
                     DisplayClientsList(clientsByEmail, $"Результаты поиска по email: '{email}'");
                     break;
-
-                default:
-                    ShowError("Неверный выбор.");
-                    break;
+                default: ShowError("Неверный выбор."); break;
             }
             Pause();
         }
@@ -234,11 +224,7 @@ namespace LoyaltyApp
         static void DisplayClientDetails(Client client, string title)
         {
             ShowHeader(title);
-            if (client == null)
-            {
-                Console.WriteLine("Клиент не найден.");
-                return;
-            }
+            if (client == null) { Console.WriteLine("Клиент не найден."); return; }
 
             Console.WriteLine($"ID: {client.Id}");
             Console.WriteLine($"ФИО: {client.FullName}");
@@ -260,19 +246,15 @@ namespace LoyaltyApp
         static void DisplayClientsList(List<Client> clients, string title)
         {
             ShowHeader(title);
-            if (!clients.Any())
-            {
-                Console.WriteLine("Клиенты не найдены.");
-                return;
-            }
+            if (!clients.Any()) { Console.WriteLine("Клиенты не найдены."); return; }
 
-            Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Телефон",-15} | {"Email",-25} | {"Карта лояльности",-15} | {"Скидка"}");
-            Console.WriteLine(new string('=', 110));
+            Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Телефон",-20} | {"Email",-25} | {"Карта лояльности",-22} | {"Скидка"}");
+            Console.WriteLine(new string('=', 120));
             foreach (var client in clients)
             {
                 string cardInfo = client.LoyaltyCard?.CardNumber ?? "Нет";
                 string discountInfo = client.LoyaltyCard != null ? $"{client.LoyaltyCard.DiscountPercent:F2}%" : "N/A";
-                Console.WriteLine($"{client.Id,-5} | {client.FullName,-30} | {client.PhoneNumber ?? "N/A",-15} | {client.Email ?? "N/A",-25} | {cardInfo,-15} | {discountInfo}");
+                Console.WriteLine($"{client.Id,-5} | {client.FullName,-30} | {client.PhoneNumber ?? "N/A",-20} | {client.Email ?? "N/A",-25} | {cardInfo,-22} | {discountInfo}");
             }
             Console.WriteLine($"\nНайдено клиентов: {clients.Count}");
         }
@@ -281,33 +263,9 @@ namespace LoyaltyApp
         {
             ShowHeader("Добавление нового клиента");
 
-            string fullName;
-
-            do
-            {
-                fullName = GetValidFullName("Введите ФИО: ");
-
-                if (fullName.Length > 30)
-                {
-                    ShowError("ФИО не должно превышать 30 символов. Повторите ввод.");
-                }
-
-            } while (fullName.Length > 30);
-
-            string email;
-            do
-            {
-                email = GetValidEmail("Введите Email (необязательно): ", isOptional: true);
-
-                if (!string.IsNullOrWhiteSpace(email) && email.Length > 25)
-                {
-                    ShowError("Email не должен превышать 25 символов. Повторите ввод.");
-                }
-
-            } while (!string.IsNullOrWhiteSpace(email) && email.Length > 25);
-
-            string phoneNumber = GetValidPhoneNumber("Введите номер телефона: ", isOptional: false);
-
+            string fullName = GetValidFullName("Введите ФИО: ");
+            string email = GetValidEmail("Введите Email (необязательно, можно оставить пустым): ", isOptional: true);
+            string phoneNumber = GetMaskedPhoneNumber("Телефон: ", isOptional: false);
             decimal discount = GetPositiveDecimal("Введите процент скидки для карты (>= 0): ");
 
             var newClient = new Client
@@ -356,10 +314,10 @@ namespace LoyaltyApp
                         break;
 
                     case "2":
-                        string newEmail = GetValidEmail("Новый Email: ", isOptional: false);
+                        string newEmail = GetValidEmail("Новый Email: ", isOptional: true);
                         if (newEmail != client.Email)
                         {
-                            bool isEmailTaken = dbContext.Clients.Any(c => c.Email == newEmail && c.Id != client.Id);
+                            bool isEmailTaken = !string.IsNullOrEmpty(newEmail) && dbContext.Clients.Any(c => c.Email == newEmail && c.Id != client.Id);
                             if (isEmailTaken) { ShowError("Этот Email уже используется другим клиентом."); }
                             else { client.Email = newEmail; hasChanges = true; ShowSuccess("Email будет обновлен."); }
                         }
@@ -368,7 +326,7 @@ namespace LoyaltyApp
                         break;
 
                     case "3":
-                        string newPhone = GetValidPhoneNumber("Новый телефон: ", isOptional: false);
+                        string newPhone = GetMaskedPhoneNumber("Новый телефон: ", isOptional: false);
                         if (newPhone != client.PhoneNumber)
                         {
                             bool isPhoneTaken = dbContext.Clients.Any(c => c.PhoneNumber == newPhone && c.Id != client.Id);
@@ -407,24 +365,8 @@ namespace LoyaltyApp
         {
             ShowHeader("Список всех клиентов");
             var clients = dbContext.Clients.Include(c => c.LoyaltyCard).ToList();
-
-            if (!clients.Any())
-            {
-                Console.WriteLine("Клиенты не найдены.");
-            }
-            else
-            {
-                Console.WriteLine($"{"ID",-5} | {"ФИО",-30} | {"Email",-25} | {"Карта лояльности ",-22}  | {"Скидка"}");
-                Console.WriteLine(new string('=', 100));
-                foreach (var client in clients)
-                {
-                    string email = client.Email ?? "Нет Email";
-                    string phone = client.PhoneNumber ?? "Нет телефона";
-                    string cardInfo = client.LoyaltyCard?.CardNumber ?? "Нет";
-                    string discountInfo = client.LoyaltyCard != null ? $"{client.LoyaltyCard.DiscountPercent:F2}%" : "N/A";
-                    Console.WriteLine($"{client.Id,-5} | {client.FullName,-30} | {email,-25} | {phone,-15} | {cardInfo,-22} | {discountInfo}");
-                }
-            }
+            if (!clients.Any()) { Console.WriteLine("Клиенты не найдены."); }
+            else { DisplayClientsList(clients, "Список всех клиентов"); }
             Pause();
         }
 
@@ -432,42 +374,15 @@ namespace LoyaltyApp
         {
             ShowHeader("Просмотр истории покупок клиента");
             var client = FindClient(dbContext);
-
-            if (client == null) { ShowError("Клиент не найден."); Pause(); return; }
-
-            var purchases = dbContext.Purchases
-                .Where(p => p.ClientId == client.Id)
-                .Include(p => p.PurchaseItems)
-                .ThenInclude(pi => pi.Product)
-                .OrderByDescending(p => p.PurchaseDate)
-                .ToList();
-
-            Console.Clear();
-            ShowHeader($"История покупок клиента: {client.FullName}");
-            if (!purchases.Any())
-            {
-                Console.WriteLine("У клиента еще нет покупок.");
-            }
-            else
-            {
-                foreach (var purchase in purchases)
-                {
-                    Console.WriteLine(new string('=', 70));
-                    Console.WriteLine($"Чек №{purchase.Id} от {purchase.PurchaseDate:dd.MM.yyyy HH:mm} (Способ оплаты: {purchase.PaymentMethod})");
-                    Console.WriteLine(new string('-', 70));
-
-                    decimal purchaseTotal = 0;
-                    foreach (var item in purchase.PurchaseItems)
-                    {
-                        decimal itemSubtotal = item.PriceAtPurchase * item.Quantity;
-                        purchaseTotal += itemSubtotal;
-                        Console.WriteLine($"  - {item.Product.Name,-25} | {item.Quantity} шт. x {item.PriceAtPurchase:F2} руб. = {itemSubtotal:F2} руб.");
-                    }
-                    Console.WriteLine(new string('-', 70));
-                    Console.WriteLine($"                                                 Итого по чеку: {purchaseTotal:F2} руб.");
-                }
-                Console.WriteLine(new string('=', 70));
-            }
+            if (client == null) { Pause(); return; }
+            DisplayPurchasesList(
+                dbContext.Purchases
+                         .Where(p => p.ClientId == client.Id)
+                         .Include(p => p.Client)
+                         .Include(p => p.PurchaseItems).ThenInclude(pi => pi.Product)
+                         .OrderByDescending(p => p.PurchaseDate).ToList(),
+                $"История покупок клиента: {client.FullName}"
+            );
             Pause();
         }
 
@@ -499,7 +414,7 @@ namespace LoyaltyApp
             ShowHeader("Добавление нового товара");
             string name = GetRequiredString("Введите название товара: ");
             string description = GetString("Введите описание (необязательно): ");
-            decimal price = GetPositiveDecimal("Введите цену товара (>= 0): ");
+            decimal price = GetPositiveDecimal("Введите цену товара (> 0): ");
 
             var newProduct = new Product { Name = name, Description = description, Price = price };
             dbContext.Products.Add(newProduct);
@@ -512,52 +427,32 @@ namespace LoyaltyApp
         static void SearchProduct(ApplicationDbContext dbContext)
         {
             ShowHeader("Поиск товара");
-
             Console.WriteLine("Выберите способ поиска:");
             Console.WriteLine("1. По ID");
             Console.WriteLine("2. По названию");
-            Console.WriteLine("3. По описанию");
-            Console.WriteLine("4. По диапазону цен");
+            Console.WriteLine("3. По диапазону цен");
 
             string choice = GetString("Ваш выбор: ");
-
             switch (choice)
             {
                 case "1":
                     int id = GetPositiveInt("Введите ID товара: ");
-                    var productById = dbContext.Products.FirstOrDefault(p => p.Id == id);
+                    var productById = dbContext.Products.Find(id);
                     DisplayProductDetails(productById, "Найденный товар");
                     break;
-
                 case "2":
                     string name = GetRequiredString("Введите название (можно часть): ");
-                    var productsByName = dbContext.Products
-                        .Where(p => p.Name.ToLower().Contains(name.ToLower()))
-                        .ToList();
+                    var productsByName = dbContext.Products.Where(p => p.Name.ToLower().Contains(name.ToLower())).ToList();
                     DisplayProductsList(productsByName, $"Результаты поиска по названию: '{name}'");
                     break;
-
                 case "3":
-                    string description = GetString("Введите описание (можно часть): ");
-                    var productsByDescription = dbContext.Products
-                        .Where(p => p.Description != null && p.Description.ToLower().Contains(description.ToLower()))
-                        .ToList();
-                    DisplayProductsList(productsByDescription, $"Результаты поиска по описанию: '{description}'");
-                    break;
-
-                case "4":
                     decimal minPrice = GetPositiveDecimal("Введите минимальную цену: ");
                     decimal maxPrice = GetPositiveDecimal("Введите максимальную цену: ");
-                    var productsByPrice = dbContext.Products
-                        .Where(p => p.Price >= minPrice && p.Price <= maxPrice)
-                        .OrderBy(p => p.Price)
-                        .ToList();
+                    if (minPrice > maxPrice) { ShowError("Минимальная цена не может быть больше максимальной."); break; }
+                    var productsByPrice = dbContext.Products.Where(p => p.Price >= minPrice && p.Price <= maxPrice).OrderBy(p => p.Price).ToList();
                     DisplayProductsList(productsByPrice, $"Результаты поиска по цене: от {minPrice:F2} до {maxPrice:F2} руб.");
                     break;
-
-                default:
-                    ShowError("Неверный выбор.");
-                    break;
+                default: ShowError("Неверный выбор."); break;
             }
             Pause();
         }
@@ -565,12 +460,7 @@ namespace LoyaltyApp
         static void DisplayProductDetails(Product product, string title)
         {
             ShowHeader(title);
-            if (product == null)
-            {
-                Console.WriteLine("Товар не найден.");
-                return;
-            }
-
+            if (product == null) { Console.WriteLine("Товар не найден."); return; }
             Console.WriteLine($"ID: {product.Id}");
             Console.WriteLine($"Название: {product.Name}");
             Console.WriteLine($"Описание: {product.Description ?? "Нет описания"}");
@@ -580,12 +470,7 @@ namespace LoyaltyApp
         static void DisplayProductsList(List<Product> products, string title)
         {
             ShowHeader(title);
-            if (!products.Any())
-            {
-                Console.WriteLine("Товары не найдены.");
-                return;
-            }
-
+            if (!products.Any()) { Console.WriteLine("Товары не найдены."); return; }
             Console.WriteLine($"{"ID",-5} | {"Название",-30} | {"Цена",-15} | {"Описание"}");
             Console.WriteLine(new string('=', 80));
             foreach (var product in products)
@@ -600,18 +485,14 @@ namespace LoyaltyApp
         {
             ShowHeader("Удаление товара из каталога");
             ViewAllProducts(dbContext);
-
             int productId = GetPositiveInt("\nВведите ID товара, который хотите удалить: ");
             var productToDelete = dbContext.Products.Find(productId);
-
             if (productToDelete == null) { ShowError("Товар с таким ID не найден."); Pause(); return; }
-
             Console.WriteLine($"Найден товар: {productToDelete.Name} (ID: {productToDelete.Id})");
             if (!GetConfirmation("Вы уверены, что хотите НАВСЕГДА удалить этот товар? (да/нет): "))
             {
                 Console.WriteLine("Удаление отменено."); Pause(); return;
             }
-
             try
             {
                 dbContext.Products.Remove(productToDelete);
@@ -627,28 +508,12 @@ namespace LoyaltyApp
             {
                 ShowError($"\nПроизошла непредвиденная ошибка: {ex.Message}");
             }
-
             Pause();
         }
 
         static void ViewAllProducts(ApplicationDbContext dbContext)
         {
-            ShowHeader("Каталог товаров");
-            var products = dbContext.Products.ToList();
-            if (!products.Any())
-            {
-                Console.WriteLine("В каталоге нет товаров.");
-            }
-            else
-            {
-                Console.WriteLine($"{"ID",-5} | {"Название",-30} | {"Цена",-15} | {"Описание"}");
-                Console.WriteLine(new string('=', 80));
-                foreach (var product in products)
-                {
-                    string priceString = $"{product.Price:F2} руб.";
-                    Console.WriteLine($"{product.Id,-5} | {product.Name,-30} | {priceString,-15} | {product.Description}");
-                }
-            }
+            DisplayProductsList(dbContext.Products.ToList(), "Каталог товаров");
             Pause();
         }
         #endregion
@@ -657,41 +522,24 @@ namespace LoyaltyApp
         static void CreateNewPurchase(ApplicationDbContext dbContext)
         {
             ShowHeader("Оформление новой покупки");
-
-            ViewAllClients(dbContext);
-            int clientId = GetPositiveInt("\nВведите ID клиента: ");
-            var client = dbContext.Clients.Include(c => c.LoyaltyCard).FirstOrDefault(c => c.Id == clientId);
-            if (client == null) { ShowError("Клиент не найден."); Pause(); return; }
+            var client = FindClient(dbContext);
+            if (client == null) { Pause(); return; }
             Console.Clear();
             ShowHeader($"Оформление покупки для клиента: {client.FullName}");
-
             var purchaseItems = new List<PurchaseItem>();
             while (true)
             {
                 ShowHeader("Доступные товары");
                 var availableProducts = dbContext.Products.ToList();
-                if (!availableProducts.Any()) { ShowError("Нет доступных для продажи товаров."); Pause(); return; }
-
-                Console.WriteLine($"{"ID",-5} | {"Название",-30} | {"Цена"}");
-                Console.WriteLine(new string('=', 50));
-                foreach (var p in availableProducts)
-                {
-                    Console.WriteLine($"{p.Id,-5} | {p.Name,-30} | {p.Price:F2} руб.");
-                }
-
+                DisplayProductsList(availableProducts, "Доступные товары");
                 Console.WriteLine("\n--- Добавление товара в чек ---");
                 Console.WriteLine("Введите ID товара для добавления или '0' для завершения.");
                 int productId = GetPositiveInt("Ваш выбор: ");
-
                 if (productId == 0) break;
-
-                var product = dbContext.Products.Find(productId);
+                var product = availableProducts.FirstOrDefault(p => p.Id == productId);
                 if (product == null) { ShowError("Товар с таким ID не найден."); continue; }
-
                 int quantity = GetPositiveInt($"Введите количество для '{product.Name}': ");
-
                 var existingItem = purchaseItems.FirstOrDefault(item => item.ProductId == productId);
-
                 if (existingItem != null)
                 {
                     existingItem.Quantity += quantity;
@@ -704,32 +552,25 @@ namespace LoyaltyApp
                 }
                 Pause();
             }
-
             if (!purchaseItems.Any()) { Console.WriteLine("Корзина пуста. Покупка отменена."); Pause(); return; }
-
             decimal totalAmount = purchaseItems.Sum(item => item.PriceAtPurchase * item.Quantity);
             decimal discount = totalAmount * ((client.LoyaltyCard?.DiscountPercent ?? 0) / 100);
             decimal finalAmount = totalAmount - discount;
-
             Console.Clear();
             ShowHeader("Подтверждение покупки");
             Console.WriteLine($"Клиент: {client.FullName}");
             Console.WriteLine($"Общая сумма: {totalAmount:F2} руб.");
             Console.WriteLine($"Скидка по карте ({client.LoyaltyCard?.DiscountPercent ?? 0:F2}%): {discount:F2} руб.");
             Console.WriteLine($"Итого к оплате: {finalAmount:F2} руб.");
-
             if (!GetConfirmation("\nОформить покупку? (да/нет): "))
             {
                 Console.WriteLine("Покупка отменена."); Pause(); return;
             }
             string[] paymentOptions = { "Карта", "Наличные" };
             string paymentMethod = GetSpecificString("Введите способ оплаты (Карта/Наличные): ", paymentOptions);
-
-
-            var newPurchase = new Purchase { ClientId = clientId, PurchaseDate = DateTime.UtcNow, PaymentMethod = paymentMethod, PurchaseItems = purchaseItems };
+            var newPurchase = new Purchase { ClientId = client.Id, PurchaseDate = DateTime.UtcNow, PaymentMethod = paymentMethod, PurchaseItems = purchaseItems };
             dbContext.Purchases.Add(newPurchase);
             dbContext.SaveChanges();
-
             ShowSuccess("Покупка успешно оформлена и сохранена!");
             Pause();
         }
@@ -737,125 +578,50 @@ namespace LoyaltyApp
         static void SearchPurchase(ApplicationDbContext dbContext)
         {
             ShowHeader("Поиск покупки");
-
             Console.WriteLine("Выберите способ поиска:");
             Console.WriteLine("1. По ID покупки");
             Console.WriteLine("2. По ID клиента");
             Console.WriteLine("3. По дате покупки");
-            Console.WriteLine("4. По способу оплаты");
-            Console.WriteLine("5. По товару в покупке");
 
             string choice = GetString("Ваш выбор: ");
+            List<Purchase> purchasesFound = new List<Purchase>();
+            string searchTitle = "Результаты поиска";
 
             switch (choice)
             {
                 case "1":
                     int purchaseId = GetPositiveInt("Введите ID покупки: ");
-                    var purchaseById = dbContext.Purchases
-                        .Include(p => p.Client)
-                        .Include(p => p.PurchaseItems)
-                        .ThenInclude(pi => pi.Product)
-                        .FirstOrDefault(p => p.Id == purchaseId);
-                    DisplayPurchaseDetails(purchaseById, "Найденная покупка");
+                    var purchaseById = dbContext.Purchases.Include(p => p.Client).Include(p => p.PurchaseItems).ThenInclude(pi => pi.Product).FirstOrDefault(p => p.Id == purchaseId);
+                    if (purchaseById != null) purchasesFound.Add(purchaseById);
+                    searchTitle = $"Поиск по ID покупки: {purchaseId}";
                     break;
-
                 case "2":
-                    int clientId = GetPositiveInt("Введите ID клиента: ");
-                    var purchasesByClient = dbContext.Purchases
-                        .Include(p => p.Client)
-                        .Include(p => p.PurchaseItems)
-                        .ThenInclude(pi => pi.Product)
-                        .Where(p => p.ClientId == clientId)
-                        .OrderByDescending(p => p.PurchaseDate)
-                        .ToList();
-                    DisplayPurchasesList(purchasesByClient, $"Покупки клиента ID: {clientId}");
+                    var client = FindClient(dbContext);
+                    if (client == null) { Pause(); return; }
+                    purchasesFound = dbContext.Purchases.Where(p => p.ClientId == client.Id).Include(p => p.Client).Include(p => p.PurchaseItems).ThenInclude(pi => pi.Product).OrderByDescending(p => p.PurchaseDate).ToList();
+                    searchTitle = $"Покупки клиента: {client.FullName}";
                     break;
-
                 case "3":
                     DateTime date = GetValidDate("Введите дату (дд.мм.гггг): ");
-                    var purchasesByDate = dbContext.Purchases
-                        .Include(p => p.Client)
-                        .Include(p => p.PurchaseItems)
-                        .ThenInclude(pi => pi.Product)
-                        .Where(p => p.PurchaseDate.Date == date.Date)
-                        .OrderByDescending(p => p.PurchaseDate)
-                        .ToList();
-                    DisplayPurchasesList(purchasesByDate, $"Покупки за {date:dd.MM.yyyy}");
+                    purchasesFound = dbContext.Purchases.Where(p => p.PurchaseDate.Date == date.Date).Include(p => p.Client).Include(p => p.PurchaseItems).ThenInclude(pi => pi.Product).OrderByDescending(p => p.PurchaseDate).ToList();
+                    searchTitle = $"Покупки за {date:dd.MM.yyyy}";
                     break;
-
-                case "4":
-                    string[] paymentOptions = { "Карта", "Наличные" };
-                    string paymentMethod = GetSpecificString("Введите способ оплаты (Карта/Наличные): ", paymentOptions);
-                    var purchasesByPayment = dbContext.Purchases
-                        .Include(p => p.Client)
-                        .Include(p => p.PurchaseItems)
-                        .ThenInclude(pi => pi.Product)
-                        .Where(p => p.PaymentMethod == paymentMethod)
-                        .OrderByDescending(p => p.PurchaseDate)
-                        .ToList();
-                    DisplayPurchasesList(purchasesByPayment, $"Покупки с оплатой: {paymentMethod}");
-                    break;
-
-                case "5":
-                    string productName = GetRequiredString("Введите название товара (можно часть): ");
-                    var purchasesByProduct = dbContext.Purchases
-                        .Include(p => p.Client)
-                        .Include(p => p.PurchaseItems)
-                        .ThenInclude(pi => pi.Product)
-                        .Where(p => p.PurchaseItems.Any(pi => pi.Product.Name.ToLower().Contains(productName.ToLower())))
-                        .OrderByDescending(p => p.PurchaseDate)
-                        .ToList();
-                    DisplayPurchasesList(purchasesByProduct, $"Покупки с товаром: '{productName}'");
-                    break;
-
-                default:
-                    ShowError("Неверный выбор.");
-                    break;
+                default: ShowError("Неверный выбор."); break;
             }
+            DisplayPurchasesList(purchasesFound, searchTitle);
             Pause();
-        }
-
-        static void DisplayPurchaseDetails(Purchase purchase, string title)
-        {
-            ShowHeader(title);
-            if (purchase == null)
-            {
-                Console.WriteLine("Покупка не найдена.");
-                return;
-            }
-
-            Console.WriteLine($"ID покупки: {purchase.Id}");
-            Console.WriteLine($"Клиент: {purchase.Client.FullName} (ID: {purchase.Client.Id})");
-            Console.WriteLine($"Дата покупки: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
-            Console.WriteLine($"Способ оплаты: {purchase.PaymentMethod}");
-
-            Console.WriteLine("\n--- Товары в покупке ---");
-            DisplayPurchaseItems(purchase.PurchaseItems.ToList());
         }
 
         static void DisplayPurchasesList(List<Purchase> purchases, string title)
         {
             ShowHeader(title);
-            if (!purchases.Any())
-            {
-                Console.WriteLine("Покупки не найдены.");
-                return;
-            }
-
+            if (!purchases.Any()) { Console.WriteLine("Покупки не найдены."); return; }
             foreach (var purchase in purchases)
             {
                 Console.WriteLine(new string('=', 70));
-                Console.WriteLine($"Чек №{purchase.Id} от {purchase.PurchaseDate:dd.MM.yyyy HH:mm} (Клиент: {purchase.Client.FullName}, Способ оплаты: {purchase.PaymentMethod})");
+                Console.WriteLine($"Чек №{purchase.Id} от {purchase.PurchaseDate:dd.MM.yyyy HH:mm} (Клиент: {purchase.Client.FullName})");
                 Console.WriteLine(new string('-', 70));
-                decimal purchaseTotal = 0;
-                foreach (var item in purchase.PurchaseItems)
-                {
-                    decimal itemSubtotal = item.PriceAtPurchase * item.Quantity;
-                    purchaseTotal += itemSubtotal;
-                    Console.WriteLine($" - {item.Product.Name,-25} | {item.Quantity} шт. x {item.PriceAtPurchase:F2} руб. = {itemSubtotal:F2} руб.");
-                }
-                Console.WriteLine(new string('-', 70));
-                Console.WriteLine($" Итого по чеку: {purchaseTotal:F2} руб.");
+                DisplayPurchaseItems(purchase.PurchaseItems.ToList());
             }
             Console.WriteLine(new string('=', 70));
             Console.WriteLine($"\nНайдено покупок: {purchases.Count}");
@@ -864,334 +630,167 @@ namespace LoyaltyApp
         static void EditPurchase(ApplicationDbContext dbContext)
         {
             ShowHeader("Редактирование покупки");
-
-            ViewAllPurchases(dbContext);
-
-            int purchaseId = GetPositiveInt("\nВведите ID покупки для редактирования: ");
-            var purchase = dbContext.Purchases
-                .Include(p => p.Client)
-                .Include(p => p.PurchaseItems)
-                .ThenInclude(pi => pi.Product)
-                .FirstOrDefault(p => p.Id == purchaseId);
-
-            if (purchase == null)
-            {
-                ShowError("Покупка с таким ID не найдена.");
-                Pause();
-                return;
-            }
-
-            Console.Clear();
-            ShowHeader($"Редактирование покупки №{purchase.Id}");
-            Console.WriteLine($"Клиент: {purchase.Client.FullName}");
-            Console.WriteLine($"Дата покупки: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
-            Console.WriteLine($"Способ оплаты: {purchase.PaymentMethod}");
-
+            var purchase = FindPurchase(dbContext);
+            if (purchase == null) { Pause(); return; }
             bool hasChanges = false;
             while (true)
             {
-                Console.WriteLine("\n--- Текущие товары в покупке ---");
-                DisplayPurchaseItems(purchase.PurchaseItems.ToList());
-
+                Console.Clear();
+                ShowHeader($"Редактирование покупки №{purchase.Id}");
+                DisplayPurchaseDetails(purchase, "");
                 Console.WriteLine("\nЧто вы хотите сделать?");
                 Console.WriteLine("1. Изменить способ оплаты");
                 Console.WriteLine("2. Добавить товар");
                 Console.WriteLine("3. Изменить количество товара");
                 Console.WriteLine("4. Удалить товар из покупки");
                 Console.WriteLine("0. Сохранить изменения и выйти");
-
                 string choice = GetString("\nВаш выбор: ");
-
                 switch (choice)
                 {
                     case "1":
                         string[] paymentOptions = { "Карта", "Наличные" };
                         string newPaymentMethod = GetSpecificString("Новый способ оплаты (Карта/Наличные): ", paymentOptions);
-                        if (newPaymentMethod != purchase.PaymentMethod)
-                        {
-                            purchase.PaymentMethod = newPaymentMethod;
-                            hasChanges = true;
-                            ShowSuccess("Способ оплаты будет обновлен.");
-                        }
-                        else
-                        {
-                            ShowError("Новый способ оплаты совпадает с текущим.");
-                        }
+                        if (newPaymentMethod != purchase.PaymentMethod) { purchase.PaymentMethod = newPaymentMethod; hasChanges = true; ShowSuccess("Способ оплаты будет обновлен."); }
+                        else { ShowError("Новый способ оплаты совпадает с текущим."); }
                         Pause();
                         break;
-
-                    case "2":
-                        AddProductToPurchase(dbContext, purchase);
-                        hasChanges = true;
-                        break;
-
-                    case "3":
-                        if (EditProductQuantityInPurchase(purchase))
-                            hasChanges = true;
-                        break;
-
-                    case "4":
-                        if (RemoveProductFromPurchase(purchase))
-                            hasChanges = true;
-                        break;
-
+                    case "2": if (AddProductToPurchase(dbContext, purchase)) hasChanges = true; break;
+                    case "3": if (EditProductQuantityInPurchase(purchase)) hasChanges = true; break;
+                    case "4": if (RemoveProductFromPurchase(dbContext, purchase)) hasChanges = true; break;
                     case "0":
-                        if (hasChanges)
-                        {
-                            try
-                            {
-                                dbContext.SaveChanges();
-                                ShowSuccess("Изменения в покупке успешно сохранены!");
-                            }
-                            catch (Exception ex)
-                            {
-                                ShowError($"Ошибка при сохранении: {ex.Message}");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("Изменений не было.");
-                        }
+                        if (hasChanges) { dbContext.SaveChanges(); ShowSuccess("Изменения в покупке успешно сохранены!"); }
+                        else { Console.WriteLine("Изменений не было."); }
                         Pause();
                         return;
-
-                    default:
-                        ShowError("Неверный выбор.");
-                        Pause();
-                        break;
+                    default: ShowError("Неверный выбор."); Pause(); break;
                 }
             }
+        }
+
+        static Purchase FindPurchase(ApplicationDbContext dbContext)
+        {
+            ViewAllPurchases(dbContext);
+            int purchaseId = GetPositiveInt("\nВведите ID покупки: ");
+            return dbContext.Purchases.Include(p => p.Client).Include(p => p.PurchaseItems).ThenInclude(pi => pi.Product).FirstOrDefault(p => p.Id == purchaseId);
+        }
+
+        static void DisplayPurchaseDetails(Purchase purchase, string title)
+        {
+            ShowHeader(title);
+            if (purchase == null) { Console.WriteLine("Покупка не найдена."); return; }
+            Console.WriteLine($"ID покупки: {purchase.Id}");
+            Console.WriteLine($"Клиент: {purchase.Client.FullName} (ID: {purchase.Client.Id})");
+            Console.WriteLine($"Дата покупки: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
+            Console.WriteLine($"Способ оплаты: {purchase.PaymentMethod}");
+            Console.WriteLine("\n--- Товары в покупке ---");
+            DisplayPurchaseItems(purchase.PurchaseItems.ToList());
+        }
+
+        static bool AddProductToPurchase(ApplicationDbContext dbContext, Purchase purchase)
+        {
+            ViewAllProducts(dbContext);
+            int productId = GetPositiveInt("\nВведите ID товара для добавления: ");
+            var productToAdd = dbContext.Products.Find(productId);
+            if (productToAdd == null) { ShowError("Товар с таким ID не найден."); Pause(); return false; }
+            var existingItem = purchase.PurchaseItems.FirstOrDefault(pi => pi.ProductId == productId);
+            if (existingItem != null) { ShowError("Этот товар уже есть в покупке. Используйте функцию изменения количества."); Pause(); return false; }
+            int quantity = GetPositiveInt($"Введите количество товара '{productToAdd.Name}': ");
+            var newItem = new PurchaseItem { ProductId = productToAdd.Id, Quantity = quantity, PriceAtPurchase = productToAdd.Price };
+            purchase.PurchaseItems.Add(newItem);
+            ShowSuccess($"Товар '{productToAdd.Name}' добавлен в покупку.");
+            Pause();
+            return true;
+        }
+
+        static bool EditProductQuantityInPurchase(Purchase purchase)
+        {
+            if (!purchase.PurchaseItems.Any()) { ShowError("В покупке нет товаров для редактирования."); Pause(); return false; }
+            DisplayPurchaseItems(purchase.PurchaseItems.ToList());
+            int productId = GetPositiveInt("\nВведите ID товара для изменения количества: ");
+            var itemToEdit = purchase.PurchaseItems.FirstOrDefault(pi => pi.ProductId == productId);
+            if (itemToEdit == null) { ShowError("Товар с таким ID в этой покупке не найден."); Pause(); return false; }
+            int newQuantity = GetPositiveInt($"Введите новое количество для '{itemToEdit.Product.Name}' (текущее: {itemToEdit.Quantity}): ");
+            if (newQuantity == 0)
+            {
+                ShowError("Количество не может быть равно нулю. Для удаления используйте соответствующий пункт меню."); Pause(); return false;
+            }
+            if (newQuantity == itemToEdit.Quantity) { ShowError("Новое количество совпадает с текущим."); Pause(); return false; }
+            itemToEdit.Quantity = newQuantity;
+            ShowSuccess($"Количество товара '{itemToEdit.Product.Name}' изменено на {newQuantity}.");
+            Pause();
+            return true;
+        }
+
+        static bool RemoveProductFromPurchase(ApplicationDbContext dbContext, Purchase purchase)
+        {
+            if (!purchase.PurchaseItems.Any()) { ShowError("В покупке нет товаров для удаления."); Pause(); return false; }
+            DisplayPurchaseItems(purchase.PurchaseItems.ToList());
+            int productId = GetPositiveInt("\nВведите ID товара для удаления: ");
+            var itemToRemove = purchase.PurchaseItems.FirstOrDefault(pi => pi.ProductId == productId);
+            if (itemToRemove == null) { ShowError("Товар с таким ID в этой покупке не найден."); Pause(); return false; }
+            if (GetConfirmation($"Вы уверены, что хотите удалить '{itemToRemove.Product.Name}' из покупки? (да/нет): "))
+            {
+                dbContext.PurchaseItems.Remove(itemToRemove);
+                ShowSuccess($"Товар '{itemToRemove.Product.Name}' удален из покупки.");
+                Pause();
+                return true;
+            }
+            Console.WriteLine("Удаление отменено."); Pause();
+            return false;
         }
 
         static void DeletePurchase(ApplicationDbContext dbContext)
         {
             ShowHeader("Удаление покупки");
-
-            ViewAllPurchases(dbContext);
-
-            int purchaseId = GetPositiveInt("\nВведите ID покупки для удаления: ");
-            var purchase = dbContext.Purchases
-                .Include(p => p.Client)
-                .Include(p => p.PurchaseItems)
-                .FirstOrDefault(p => p.Id == purchaseId);
-
-            if (purchase == null)
-            {
-                ShowError("Покупка с таким ID не найдена.");
-                Pause();
-                return;
-            }
-
+            var purchaseToDelete = FindPurchase(dbContext);
+            if (purchaseToDelete == null) { ShowError("Покупка не найдена."); Pause(); return; }
             Console.Clear();
-            ShowHeader($"Удаление покупки №{purchase.Id}");
-            Console.WriteLine($"Клиент: {purchase.Client.FullName}");
-            Console.WriteLine($"Дата покупки: {purchase.PurchaseDate:dd.MM.yyyy HH:mm}");
-            Console.WriteLine($"Способ оплаты: {purchase.PaymentMethod}");
-
-            Console.WriteLine("\n--- Товары в покупке ---");
-            DisplayPurchaseItems(purchase.PurchaseItems.ToList());
-
-            if (!GetConfirmation("\nВы уверены, что хотите удалить эту покупку? (да/нет): "))
+            DisplayPurchaseDetails(purchaseToDelete, $"Удаление покупки №{purchaseToDelete.Id}");
+            if (GetConfirmation("\nВы уверены, что хотите удалить эту покупку? Это действие необратимо. (да/нет): "))
             {
-                Console.WriteLine("Удаление отменено.");
-                Pause();
-                return;
-            }
-
-            try
-            {
-                dbContext.PurchaseItems.RemoveRange(purchase.PurchaseItems);
-                dbContext.Purchases.Remove(purchase);
+                dbContext.Purchases.Remove(purchaseToDelete); // Cascade delete
                 dbContext.SaveChanges();
-                ShowSuccess("Покупка успешно удалена!");
-            }
-            catch (Exception ex)
-            {
-                ShowError($"Ошибка при удалении покупки: {ex.Message}");
-            }
-
-            Pause();
-        }
-
-        static void AddProductToPurchase(ApplicationDbContext dbContext, Purchase purchase)
-        {
-            Console.Clear();
-            ShowHeader("Добавление товара в покупку");
-
-            var availableProducts = dbContext.Products.ToList();
-            if (!availableProducts.Any())
-            {
-                ShowError("Нет доступных товаров для добавления.");
-                Pause();
-                return;
-            }
-
-            Console.WriteLine("Доступные товары:");
-            Console.WriteLine($"{"ID",-5} | {"Название",-30} | {"Цена"}");
-            Console.WriteLine(new string('=', 50));
-            foreach (var product in availableProducts)
-            {
-                Console.WriteLine($"{product.Id,-5} | {product.Name,-30} | {product.Price:F2} руб.");
-            }
-
-            int productId = GetPositiveInt("\nВведите ID товара для добавления: ");
-            var productToAdd = availableProducts.FirstOrDefault(p => p.Id == productId);
-
-            if (productToAdd == null)
-            {
-                ShowError("Товар с таким ID не найден.");
-                Pause();
-                return;
-            }
-
-            var existingItem = purchase.PurchaseItems.FirstOrDefault(pi => pi.ProductId == productId);
-            if (existingItem != null)
-            {
-                ShowError("Этот товар уже есть в покупке. Используйте функцию изменения количества.");
-                Pause();
-                return;
-            }
-
-            int quantity = GetPositiveInt($"Введите количество товара '{productToAdd.Name}': ");
-
-            purchase.PurchaseItems.Add(new PurchaseItem
-            {
-                ProductId = productToAdd.Id,
-                Quantity = quantity,
-                PriceAtPurchase = productToAdd.Price,
-                PurchaseId = purchase.Id
-            });
-
-            ShowSuccess($"Товар '{productToAdd.Name}' добавлен в покупку.");
-            Pause();
-        }
-
-        static bool EditProductQuantityInPurchase(Purchase purchase)
-        {
-            if (!purchase.PurchaseItems.Any())
-            {
-                ShowError("В покупке нет товаров для редактирования.");
-                Pause();
-                return false;
-            }
-
-            Console.WriteLine("\n--- Товары в покупке ---");
-            for (int i = 0; i < purchase.PurchaseItems.Count; i++)
-            {
-                var item = purchase.PurchaseItems.ElementAt(i);
-                Console.WriteLine($"{i + 1}. {item.Product.Name} - {item.Quantity} шт. x {item.PriceAtPurchase:F2} руб.");
-            }
-
-            int itemIndex = GetPositiveInt("Введите номер товара для изменения количества: ") - 1;
-
-            if (itemIndex < 0 || itemIndex >= purchase.PurchaseItems.Count)
-            {
-                ShowError("Неверный номер товара.");
-                Pause();
-                return false;
-            }
-
-            var itemToEdit = purchase.PurchaseItems.ElementAt(itemIndex);
-            int newQuantity = GetPositiveInt($"Введите новое количество для '{itemToEdit.Product.Name}' (текущее: {itemToEdit.Quantity}): ");
-
-            if (newQuantity == 0)
-            {
-                purchase.PurchaseItems.Remove(itemToEdit);
-                ShowSuccess($"Товар '{itemToEdit.Product.Name}' удален из покупки.");
+                ShowSuccess("Покупка успешно удалена.");
             }
             else
             {
-                itemToEdit.Quantity = newQuantity;
-                ShowSuccess($"Количество товара '{itemToEdit.Product.Name}' изменено на {newQuantity}.");
+                Console.WriteLine("Удаление отменено.");
             }
-
             Pause();
-            return true;
-        }
-
-        static bool RemoveProductFromPurchase(Purchase purchase)
-        {
-            if (!purchase.PurchaseItems.Any())
-            {
-                ShowError("В покупке нет товаров для удаления.");
-                Pause();
-                return false;
-            }
-
-            Console.WriteLine("\n--- Товары в покупке ---");
-            for (int i = 0; i < purchase.PurchaseItems.Count; i++)
-            {
-                var item = purchase.PurchaseItems.ElementAt(i);
-                Console.WriteLine($"{i + 1}. {item.Product.Name} - {item.Quantity} шт. x {item.PriceAtPurchase:F2} руб.");
-            }
-
-            int itemIndex = GetPositiveInt("Введите номер товара для удаления: ") - 1;
-
-            if (itemIndex < 0 || itemIndex >= purchase.PurchaseItems.Count)
-            {
-                ShowError("Неверный номер товара.");
-                Pause();
-                return false;
-            }
-
-            var itemToRemove = purchase.PurchaseItems.ElementAt(itemIndex);
-
-            if (GetConfirmation($"Вы уверены, что хотите удалить '{itemToRemove.Product.Name}' из покупки? (да/нет): "))
-            {
-                purchase.PurchaseItems.Remove(itemToRemove);
-                ShowSuccess($"Товар '{itemToRemove.Product.Name}' удален из покупки.");
-                Pause();
-                return true;
-            }
-
-            Console.WriteLine("Удаление отменено.");
-            Pause();
-            return false;
         }
 
         static void ViewAllPurchases(ApplicationDbContext dbContext)
         {
-            var purchases = dbContext.Purchases
-                .Include(p => p.Client)
-                .Include(p => p.PurchaseItems)
-                .ThenInclude(pi => pi.Product)
-                .OrderByDescending(p => p.PurchaseDate)
-                .ToList();
-
+            var purchases = dbContext.Purchases.Include(p => p.Client).OrderByDescending(p => p.PurchaseDate).ToList();
+            ShowHeader("Список всех покупок");
             if (!purchases.Any())
             {
-                Console.WriteLine("Покупки не найдены.");
+                Console.WriteLine("Покупок пока не было.");
+                Pause();
                 return;
             }
-
-            Console.WriteLine($"{"ID",-5} | {"Дата",-20} | {"Клиент",-25} | {"Способ оплаты",-12} | {"Товаров"}");
-            Console.WriteLine(new string('=', 80));
-            foreach (var purchase in purchases)
+            Console.WriteLine($"{"ID",-5} | {"Дата",-20} | {"Клиент",-30} | {"Способ оплаты"}");
+            Console.WriteLine(new string('=', 75));
+            foreach (var p in purchases)
             {
-                Console.WriteLine($"{purchase.Id,-5} | {purchase.PurchaseDate:dd.MM.yyyy HH:mm} | {purchase.Client.FullName,-25} | {purchase.PaymentMethod,-12} | {purchase.PurchaseItems.Count} шт.");
+                Console.WriteLine($"{p.Id,-5} | {p.PurchaseDate:dd.MM.yyyy HH:mm,-20} | {p.Client.FullName,-30} | {p.PaymentMethod}");
             }
         }
 
         static void DisplayPurchaseItems(List<PurchaseItem> items)
         {
-            if (!items.Any())
-            {
-                Console.WriteLine("Товары отсутствуют.");
-                return;
-            }
-
+            if (!items.Any()) { Console.WriteLine("Товары отсутствуют."); return; }
             decimal total = 0;
             foreach (var item in items)
             {
                 decimal subtotal = item.PriceAtPurchase * item.Quantity;
                 total += subtotal;
-                Console.WriteLine($"  - {item.Product.Name,-25} | {item.Quantity} шт. x {item.PriceAtPurchase:F2} руб. = {subtotal:F2} руб.");
+                Console.WriteLine($"  - {item.Product?.Name ?? "Удаленный товар",-25} | {item.Quantity} шт. x {item.PriceAtPurchase:F2} руб. = {subtotal:F2} руб.");
             }
             Console.WriteLine(new string('-', 60));
             Console.WriteLine($"  Итого: {total:F2} руб.");
         }
         #endregion
-
 
         #region Seeding
         static void SeedDatabase()
@@ -1199,16 +798,20 @@ namespace LoyaltyApp
             using (var dbContext = new ApplicationDbContext())
             {
                 if (dbContext.Clients.Any()) return;
-
                 Console.WriteLine("База данных пуста. Добавляем тестовые данные...");
-
-
-                dbContext.Products.AddRange(
+                var clients = new List<Client>
+                {
+                    new Client { FullName = "Иван Петров", Email = "ivan@test.com", PhoneNumber = "+79111234567", LoyaltyCard = new LoyaltyCard { CardNumber = "CARD-001", DiscountPercent = 5.0m } },
+                    new Client { FullName = "Анна Сидорова", Email = "anna@test.com", PhoneNumber = "+79217654321", LoyaltyCard = new LoyaltyCard { CardNumber = "CARD-002", DiscountPercent = 3.5m } }
+                };
+                dbContext.Clients.AddRange(clients);
+                var products = new List<Product>
+                {
                     new Product { Name = "Молоко", Description = "Молоко 3.2%", Price = 75.50m },
                     new Product { Name = "Хлеб", Description = "Хлеб Бородинский", Price = 52.00m },
                     new Product { Name = "Сыр", Description = "Сыр Гауда 100г", Price = 150.00m }
-                );
-
+                };
+                dbContext.Products.AddRange(products);
                 dbContext.SaveChanges();
             }
         }
@@ -1225,7 +828,7 @@ namespace LoyaltyApp
             while (true)
             {
                 Console.Write(prompt);
-                if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime date))
+                if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
                     return date;
                 ShowError("Ошибка: Введите дату в формате дд.мм.гггг");
             }
@@ -1262,7 +865,7 @@ namespace LoyaltyApp
             while (true)
             {
                 Console.Write(prompt);
-                string input = Console.ReadLine()?.Replace('.', ',');
+                string input = Console.ReadLine();
                 if (decimal.TryParse(input, out number) && number >= 0) return number;
                 ShowError("Ошибка: Введите корректное неотрицательное число (например, 120,50).");
             }
@@ -1287,12 +890,10 @@ namespace LoyaltyApp
             {
                 Console.Write(prompt);
                 input = Console.ReadLine()?.Trim();
-
                 if (validOptions.Contains(input, StringComparer.OrdinalIgnoreCase))
                 {
-                    return input;
-                  }
-
+                    return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(input.ToLower());
+                }
                 ShowError($"Неверный ввод. Пожалуйста, введите один из вариантов: {string.Join(" / ", validOptions)}");
             }
         }
@@ -1313,8 +914,8 @@ namespace LoyaltyApp
             while (true)
             {
                 string input = GetString(prompt);
-                if (isOptional && string.IsNullOrWhiteSpace(input)) return input;
-
+                if (isOptional && string.IsNullOrWhiteSpace(input)) return "";
+                if (string.IsNullOrEmpty(input)) { ShowError("Email не может быть пустым."); continue; }
                 try
                 {
                     var mailAddress = new MailAddress(input);
@@ -1327,20 +928,47 @@ namespace LoyaltyApp
             }
         }
 
-        static string GetValidPhoneNumber(string prompt, bool isOptional)
+        static string GetMaskedPhoneNumber(string prompt, bool isOptional)
         {
             while (true)
             {
-                string input = GetString(prompt);
-                if (isOptional && string.IsNullOrWhiteSpace(input)) return input;
-
-                string digitsOnly = new string(input.Where(char.IsDigit).ToArray());
-
-                if (digitsOnly.Length == 12 && (digitsOnly.StartsWith("7") || digitsOnly.StartsWith("8")))
+                Console.Write(prompt + "+7");
+                string digits = "";
+                while (true)
                 {
-                    return input;
+                    var key = Console.ReadKey(true);
+                    if (key.Key == ConsoleKey.Enter)
+                    {
+                        Console.WriteLine();
+                        if (isOptional && digits.Length == 0) return "";
+                        if (digits.Length != 10)
+                        {
+                            ShowError("После +7 должно быть ровно 10 цифр.");
+                            break;
+                        }
+                        return "+7" + digits;
+                    }
+                    else if (key.Key == ConsoleKey.Backspace)
+                    {
+                        if (digits.Length > 0)
+                        {
+                            digits = digits[..^1];
+                            Console.Write("\b \b");
+                        }
+                    }
+                    else if (char.IsDigit(key.KeyChar))
+                    {
+                        if (digits.Length < 10)
+                        {
+                            digits += key.KeyChar;
+                            Console.Write(key.KeyChar);
+                        }
+                        else
+                        {
+                            Console.Beep();
+                        }
+                    }
                 }
-                ShowError("Ошибка: Введите корректный российский номер телефона начиная с 7... или 8... (11 цифр).");
             }
         }
         #endregion
