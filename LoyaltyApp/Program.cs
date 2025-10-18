@@ -1,7 +1,10 @@
 ﻿using LoyaltyApp.Data;
 using LoyaltyApp.Models;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
 
@@ -266,7 +269,7 @@ namespace LoyaltyApp
             string fullName = GetValidFullName("Введите ФИО: ");
             string email = GetValidEmail("Введите Email: ", isOptional: false);
             string phoneNumber = GetMaskedPhoneNumber("Телефон: ", isOptional: false);
-            decimal discount = GetDecimal("Введите процент скидки для карты (>= 0): ", 0.01m);
+            decimal discount = GetPercentage("Введите процент скидки для карты (>= 0): ");
 
             var newClient = new Client
             {
@@ -312,19 +315,17 @@ namespace LoyaltyApp
                         else { ShowError("Ввод совпадает с текущим значением."); }
                         Pause();
                         break;
-
                     case "2":
                         string newEmail = GetValidEmail("Новый Email: ", isOptional: false);
                         if (newEmail != client.Email)
                         {
-                            bool isEmailTaken = !string.IsNullOrEmpty(newEmail) && dbContext.Clients.Any(c => c.Email == newEmail && c.Id != client.Id);
+                            bool isEmailTaken = dbContext.Clients.Any(c => c.Email == newEmail && c.Id != client.Id);
                             if (isEmailTaken) { ShowError("Этот Email уже используется другим клиентом."); }
                             else { client.Email = newEmail; hasChanges = true; ShowSuccess("Email будет обновлен."); }
                         }
                         else { ShowError("Ввод совпадает с текущим значением."); }
                         Pause();
                         break;
-
                     case "3":
                         string newPhone = GetMaskedPhoneNumber("Новый телефон: ", isOptional: false);
                         if (newPhone != client.PhoneNumber)
@@ -336,10 +337,9 @@ namespace LoyaltyApp
                         else { ShowError("Ввод совпадает с текущим значением."); }
                         Pause();
                         break;
-
                     case "4":
                         if (client.LoyaltyCard == null) { ShowError("У этого клиента нет карты лояльности."); Pause(); break; }
-                        decimal newDiscount = GetDecimal("Новая скидка (>= 0): ", 0);
+                        decimal newDiscount = GetPercentage("Новая скидка (от 0 до 100): ");
                         if (newDiscount != client.LoyaltyCard.DiscountPercent)
                         {
                             client.LoyaltyCard.DiscountPercent = newDiscount;
@@ -349,13 +349,11 @@ namespace LoyaltyApp
                         else { ShowError("Новое значение совпадает с текущим."); }
                         Pause();
                         break;
-
                     case "0":
                         if (hasChanges) { dbContext.SaveChanges(); ShowSuccess("\nДанные клиента успешно обновлены!"); }
                         else { Console.WriteLine("\nНе было внесено никаких изменений."); }
                         Pause();
                         return;
-
                     default: ShowError("Неверный выбор."); Pause(); break;
                 }
             }
@@ -376,11 +374,7 @@ namespace LoyaltyApp
             var client = FindClient(dbContext);
             if (client == null) { Pause(); return; }
             DisplayPurchasesList(
-                dbContext.Purchases
-                         .Where(p => p.ClientId == client.Id)
-                         .Include(p => p.Client)
-                         .Include(p => p.PurchaseItems).ThenInclude(pi => pi.Product)
-                         .OrderByDescending(p => p.PurchaseDate).ToList(),
+                dbContext.Purchases.Where(p => p.ClientId == client.Id).Include(p => p.Client).Include(p => p.PurchaseItems).ThenInclude(pi => pi.Product).OrderByDescending(p => p.PurchaseDate).ToList(),
                 $"История покупок клиента: {client.FullName}"
             );
             Pause();
@@ -390,9 +384,7 @@ namespace LoyaltyApp
         {
             ShowHeader("Удаление клиента");
             var clientToDelete = FindClient(dbContext);
-
             if (clientToDelete == null) { ShowError("Клиент не найден."); Pause(); return; }
-
             Console.WriteLine($"\nНайден клиент: {clientToDelete.FullName} (ID: {clientToDelete.Id})");
             if (GetConfirmation("Вы уверены, что хотите удалить этого клиента и все его данные? (да/нет): "))
             {
@@ -400,10 +392,7 @@ namespace LoyaltyApp
                 dbContext.SaveChanges();
                 ShowSuccess("Клиент успешно удален.");
             }
-            else
-            {
-                Console.WriteLine("Удаление отменено.");
-            }
+            else { Console.WriteLine("Удаление отменено."); }
             Pause();
         }
         #endregion
@@ -415,11 +404,9 @@ namespace LoyaltyApp
             string name = GetRequiredString("Введите название товара: ");
             string description = GetString("Введите описание (необязательно): ");
             decimal price = GetDecimal("Введите цену товара (> 0): ", 0.01m);
-
             var newProduct = new Product { Name = name, Description = description, Price = price };
             dbContext.Products.Add(newProduct);
             dbContext.SaveChanges();
-
             ShowSuccess($"Товар '{name}' успешно добавлен в каталог!");
             Pause();
         }
@@ -431,7 +418,6 @@ namespace LoyaltyApp
             Console.WriteLine("1. По ID");
             Console.WriteLine("2. По названию");
             Console.WriteLine("3. По диапазону цен");
-
             string choice = GetString("Ваш выбор: ");
             switch (choice)
             {
@@ -531,7 +517,7 @@ namespace LoyaltyApp
             {
                 ShowHeader("Доступные товары");
                 var availableProducts = dbContext.Products.ToList();
-                DisplayProductsList(availableProducts, "Доступные товары");
+                DisplayProductsList(availableProducts, "");
                 Console.WriteLine("\n--- Добавление товара в чек ---");
                 Console.WriteLine("Введите ID товара для добавления или '0' для завершения.");
                 int productId = GetPositiveInt("Ваш выбор: ");
@@ -539,6 +525,7 @@ namespace LoyaltyApp
                 var product = availableProducts.FirstOrDefault(p => p.Id == productId);
                 if (product == null) { ShowError("Товар с таким ID не найден."); continue; }
                 int quantity = GetPositiveInt($"Введите количество для '{product.Name}': ");
+                if (quantity == 0) { ShowError("Количество не может быть равно нулю."); continue; }
                 var existingItem = purchaseItems.FirstOrDefault(item => item.ProductId == productId);
                 if (existingItem != null)
                 {
@@ -562,10 +549,7 @@ namespace LoyaltyApp
             Console.WriteLine($"Общая сумма: {totalAmount:F2} руб.");
             Console.WriteLine($"Скидка по карте ({client.LoyaltyCard?.DiscountPercent ?? 0:F2}%): {discount:F2} руб.");
             Console.WriteLine($"Итого к оплате: {finalAmount:F2} руб.");
-            if (!GetConfirmation("\nОформить покупку? (да/нет): "))
-            {
-                Console.WriteLine("Покупка отменена."); Pause(); return;
-            }
+            if (!GetConfirmation("\nОформить покупку? (да/нет): ")) { Console.WriteLine("Покупка отменена."); Pause(); return; }
             string[] paymentOptions = { "Карта", "Наличные" };
             string paymentMethod = GetSpecificString("Введите способ оплаты (Карта/Наличные): ", paymentOptions);
             var newPurchase = new Purchase { ClientId = client.Id, PurchaseDate = DateTime.UtcNow, PaymentMethod = paymentMethod, PurchaseItems = purchaseItems };
@@ -582,11 +566,9 @@ namespace LoyaltyApp
             Console.WriteLine("1. По ID покупки");
             Console.WriteLine("2. По ID клиента");
             Console.WriteLine("3. По дате покупки");
-
             string choice = GetString("Ваш выбор: ");
             List<Purchase> purchasesFound = new List<Purchase>();
             string searchTitle = "Результаты поиска";
-
             switch (choice)
             {
                 case "1":
@@ -652,16 +634,14 @@ namespace LoyaltyApp
                         string newPaymentMethod = GetSpecificString("Новый способ оплаты (Карта/Наличные): ", paymentOptions);
                         if (newPaymentMethod != purchase.PaymentMethod) { purchase.PaymentMethod = newPaymentMethod; hasChanges = true; ShowSuccess("Способ оплаты будет обновлен."); }
                         else { ShowError("Новый способ оплаты совпадает с текущим."); }
-                        Pause();
-                        break;
+                        Pause(); break;
                     case "2": if (AddProductToPurchase(dbContext, purchase)) hasChanges = true; break;
                     case "3": if (EditProductQuantityInPurchase(purchase)) hasChanges = true; break;
                     case "4": if (RemoveProductFromPurchase(dbContext, purchase)) hasChanges = true; break;
                     case "0":
                         if (hasChanges) { dbContext.SaveChanges(); ShowSuccess("Изменения в покупке успешно сохранены!"); }
                         else { Console.WriteLine("Изменений не было."); }
-                        Pause();
-                        return;
+                        Pause(); return;
                     default: ShowError("Неверный выбор."); Pause(); break;
                 }
             }
@@ -695,6 +675,7 @@ namespace LoyaltyApp
             var existingItem = purchase.PurchaseItems.FirstOrDefault(pi => pi.ProductId == productId);
             if (existingItem != null) { ShowError("Этот товар уже есть в покупке. Используйте функцию изменения количества."); Pause(); return false; }
             int quantity = GetPositiveInt($"Введите количество товара '{productToAdd.Name}': ");
+            if (quantity == 0) { ShowError("Количество не может быть равно нулю."); Pause(); return false; }
             var newItem = new PurchaseItem { ProductId = productToAdd.Id, Quantity = quantity, PriceAtPurchase = productToAdd.Price };
             purchase.PurchaseItems.Add(newItem);
             ShowSuccess($"Товар '{productToAdd.Name}' добавлен в покупку.");
@@ -710,10 +691,7 @@ namespace LoyaltyApp
             var itemToEdit = purchase.PurchaseItems.FirstOrDefault(pi => pi.ProductId == productId);
             if (itemToEdit == null) { ShowError("Товар с таким ID в этой покупке не найден."); Pause(); return false; }
             int newQuantity = GetPositiveInt($"Введите новое количество для '{itemToEdit.Product.Name}' (текущее: {itemToEdit.Quantity}): ");
-            if (newQuantity == 0)
-            {
-                ShowError("Количество не может быть равно нулю. Для удаления используйте соответствующий пункт меню."); Pause(); return false;
-            }
+            if (newQuantity == 0) { ShowError("Количество не может быть равно нулю. Для удаления используйте соответствующий пункт меню."); Pause(); return false; }
             if (newQuantity == itemToEdit.Quantity) { ShowError("Новое количество совпадает с текущим."); Pause(); return false; }
             itemToEdit.Quantity = newQuantity;
             ShowSuccess($"Количество товара '{itemToEdit.Product.Name}' изменено на {newQuantity}.");
@@ -748,7 +726,7 @@ namespace LoyaltyApp
             DisplayPurchaseDetails(purchaseToDelete, $"Удаление покупки №{purchaseToDelete.Id}");
             if (GetConfirmation("\nВы уверены, что хотите удалить эту покупку? Это действие необратимо. (да/нет): "))
             {
-                dbContext.Purchases.Remove(purchaseToDelete);
+                dbContext.Purchases.Remove(purchaseToDelete); // Cascade удалит PurchaseItems
                 dbContext.SaveChanges();
                 ShowSuccess("Покупка успешно удалена.");
             }
@@ -798,7 +776,7 @@ namespace LoyaltyApp
             using (var dbContext = new ApplicationDbContext())
             {
                 if (dbContext.Clients.Any()) return;
-                Console.WriteLine("База данных пуста. Добавляем тестовые данные...");
+                Console.WriteLine("База данных пуста. Заполняем тестовыми данными...");
                 var clients = new List<Client>
                 {
                     new Client { FullName = "Иван Петров", Email = "ivan@test.com", PhoneNumber = "+79111234567", LoyaltyCard = new LoyaltyCard { CardNumber = "CARD-001", DiscountPercent = 5.0m } },
@@ -823,61 +801,70 @@ namespace LoyaltyApp
         static void ShowError(string message) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine(message); Console.ResetColor(); }
         static void Pause() { Console.WriteLine("\nНажмите любую клавишу для продолжения..."); Console.ReadKey(); }
 
-        static DateTime GetValidDate(string prompt)
+        static DateTime GetValidDate(string qwe)
         {
             while (true)
             {
-                Console.Write(prompt);
-                if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
-                    return date;
+                Console.Write(qwe);
+                if (DateTime.TryParseExact(Console.ReadLine(), "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date)) return date;
                 ShowError("Ошибка: Введите дату в формате дд.мм.гггг");
             }
         }
 
-        static string GetRequiredString(string prompt)
+        static string GetRequiredString(string qwe)
         {
             string input;
             while (true)
             {
-                Console.Write(prompt);
+                Console.Write(qwe);
                 input = Console.ReadLine()?.Trim();
                 if (!string.IsNullOrWhiteSpace(input)) return input;
                 ShowError("Ошибка: Ввод не может быть пустым.");
             }
         }
 
-        static string GetString(string prompt) { Console.Write(prompt); return Console.ReadLine()?.Trim(); }
+        static string GetString(string qwe) { Console.Write(qwe); return Console.ReadLine()?.Trim(); }
 
-        static int GetPositiveInt(string prompt)
+        static int GetPositiveInt(string qwe)
         {
             int number;
             while (true)
             {
-                Console.Write(prompt);
+                Console.Write(qwe);
                 if (int.TryParse(Console.ReadLine(), out number) && number >= 0) return number;
                 ShowError("Ошибка: Введите корректное целое неотрицательное число.");
             }
         }
-        static decimal GetDecimal(string prompt, decimal minValue)
+
+        static decimal GetDecimal(string qwe, decimal minValue)
         {
             decimal number;
             while (true)
             {
-                Console.Write(prompt);
-                string input = Console.ReadLine();
-                if (decimal.TryParse(input, out number) && number >= minValue)
-                {
-                    return number;
-                }
-                ShowError($"Ошибка: Введите корректное неотрицательное число (>= 0.01).");
+                Console.Write(qwe);
+                string input = Console.ReadLine()?.Replace('.', ',');
+                if (decimal.TryParse(input, out number) && number >= minValue) return number;
+                ShowError($"Ошибка: Введите число, не меньше {minValue}.");
             }
         }
 
-        static bool GetConfirmation(string prompt)
+        static decimal GetPercentage(string qwe)
+        {
+            decimal number;
+            while (true)
+            {
+                Console.Write(qwe);
+                string input = Console.ReadLine()?.Replace('.', ',');
+                if (decimal.TryParse(input, out number) && number >= 0 && number <= 100) return number;
+                ShowError("Ошибка: Введите число от 0 до 100.");
+            }
+        }
+
+        static bool GetConfirmation(string qwe)
         {
             while (true)
             {
-                Console.Write(prompt);
+                Console.Write(qwe);
                 string input = Console.ReadLine()?.ToLower();
                 if (input == "да") return true;
                 if (input == "нет") return false;
@@ -885,12 +872,12 @@ namespace LoyaltyApp
             }
         }
 
-        static string GetSpecificString(string prompt, string[] validOptions)
+        static string GetSpecificString(string qwe, string[] validOptions)
         {
             string input;
             while (true)
             {
-                Console.Write(prompt);
+                Console.Write(qwe);
                 input = Console.ReadLine()?.Trim();
                 if (validOptions.Contains(input, StringComparer.OrdinalIgnoreCase))
                 {
@@ -900,22 +887,22 @@ namespace LoyaltyApp
             }
         }
 
-        static string GetValidFullName(string prompt)
+        static string GetValidFullName(string qwe)
         {
             var regex = new Regex(@"^[а-яА-ЯёЁa-zA-Z\s-]+$");
             while (true)
             {
-                string input = GetRequiredString(prompt);
+                string input = GetRequiredString(qwe);
                 if (regex.IsMatch(input)) return input;
                 ShowError("Ошибка: ФИО должно содержать только буквы, пробелы и дефисы.");
             }
         }
 
-        static string GetValidEmail(string prompt, bool isOptional)
+        static string GetValidEmail(string qwe, bool isOptional)
         {
             while (true)
             {
-                string input = GetString(prompt);
+                string input = GetString(qwe);
                 if (isOptional && string.IsNullOrWhiteSpace(input)) return "";
                 if (string.IsNullOrEmpty(input)) { ShowError("Email не может быть пустым."); continue; }
                 try
@@ -930,11 +917,11 @@ namespace LoyaltyApp
             }
         }
 
-        static string GetMaskedPhoneNumber(string prompt, bool isOptional)
+        static string GetMaskedPhoneNumber(string qwe, bool isOptional)
         {
             while (true)
             {
-                Console.Write(prompt + "+7");
+                Console.Write(qwe + "+7");
                 string digits = "";
                 while (true)
                 {
@@ -945,7 +932,7 @@ namespace LoyaltyApp
                         if (isOptional && digits.Length == 0) return "";
                         if (digits.Length != 10)
                         {
-                            ShowError("После +7 должно быть ровно 10 цифр.");
+                            ShowError("Номер должен содержать 10 цифр после +7.");
                             break;
                         }
                         return "+7" + digits;
